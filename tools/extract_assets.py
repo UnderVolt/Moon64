@@ -184,8 +184,9 @@ def main():
                         "--only-samples",
                     ]
                     for (asset, pos, size, meta) in assets:
-                        asset = "assets/" + asset
-                        # print("extracting", asset)
+                        if( not "actors" in asset and not "levels" in asset and not "demos" in asset):
+                            asset = "assets/" + asset
+                        print("extracting", asset)
                         args.append(asset + ":" + str(pos))
                     try:
                         subprocess.run(args, check=True)
@@ -211,8 +212,9 @@ def main():
             image = roms[lang]
 
         for (asset, pos, size, meta) in assets:
-            asset = "assets/" + asset
-            # print("extracting", asset)
+            if( not "actors" in asset and not "levels" in asset and not "demos" in asset):
+                asset = "assets/" + asset
+            print("extracting", asset)
             input = image[pos : pos + size]
             os.makedirs(os.path.dirname(asset), exist_ok=True)
             if asset.endswith(".png"):
