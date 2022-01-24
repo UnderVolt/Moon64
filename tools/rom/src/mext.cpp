@@ -23,10 +23,10 @@ Transformer transformers[] = {
         string aiff  = fullpath;
         string aifc  = sm64::join(dir, filename + ".aifc");
         string table = sm64::join(dir, filename + ".table");
-        string codebook = sm64::exec("./tools/aiff_extract_codebook " + aiff);
+        string codebook = sm64::exec(sm64::format("%s/aiff_extract_codebook %s", sm64::cwd, aiff.c_str()));
         sm64::writeFile(table, codebook);
 
-        sm64::exec(sm64::format("./tools/vadpcm_enc -c %s %s %s", table.c_str(), aiff.c_str(), aifc.c_str()));
+        sm64::exec(sm64::format("%s/vadpcm_enc -c %s %s %s", sm64::cwd, table.c_str(), aiff.c_str(), aifc.c_str()));
     }}
 };
 
@@ -73,9 +73,10 @@ void build_addon(const char* rom, const char* dir){
     string rom_path(rom);
     string temp_dir(dir);
 
-    cout << "Extracting to " << temp_dir << endl;
+    sm64::rm(temp_dir);
 
-    string assets = sm64::exec(sm64::format("python3 %s/tools/extract_assets.py %s %s", CWD, temp_dir.c_str(), rom_path.c_str()));
+    cout << "Extracting to " << temp_dir << endl;
+    string assets = sm64::exec(sm64::format("python3 %s/rom/tools/extract_assets.py %s %s", sm64::cwd, temp_dir.c_str(), rom_path.c_str()));
     if( !nlohmann::json::accept(assets) ) return;
 
     nlohmann::json json = nlohmann::json::parse(assets);
@@ -101,6 +102,7 @@ void build_addon(const char* rom, const char* dir){
 }
 
 int main(int argc, char *argv[]) {
+    sm64::bindCwd();
     if(argc < 3){
         cout << "Usage: " << argv[0] << " <rom> <output> [...defaults]" << endl;
         return 1;

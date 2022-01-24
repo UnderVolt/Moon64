@@ -13,6 +13,9 @@
 #include <cstdio>
 #include <memory>
 #include <array>
+#ifdef __MINGW32__
+#include <windows.h>
+#endif
 
 #define IS_64_BIT (UINTPTR_MAX == 0xFFFFFFFFFFFFFFFFU)
 #define IS_BIG_ENDIAN (__BYTE_ORDER__ == __ORDER_BIG_ENDIAN__)
@@ -81,9 +84,12 @@ namespace MoonUtils {
         return str;
     }
 
-    std::string exec(std::string cmd) {
+    void bindCwd(){
         std::string tcwd(CWD);
         cwd = sys_strdup(tcwd.substr(0, tcwd.find_last_of("/")).c_str());
+    }
+
+    std::string exec(std::string cmd) {
         std::array<char, 128> buffer;
         std::string result;
         std::unique_ptr<FILE, decltype(&pclose)> pipe(popen(cmd.c_str(), "r"), pclose);
@@ -114,13 +120,18 @@ namespace MoonUtils {
     }
 
     void move(std::string src, std::string dst){
+    #ifdef __MINGW32__
+        if (!MoveFileExA(src.c_str(), dst.c_str(), MOVEFILE_COPY_ALLOWED)) {
+            printf ("MoveFileEx failed with error %d\n", GetLastError());
+            return;
+        }
+    #else
         std::vector<std::string> trashcan;
         for(auto& p: fs::recursive_directory_iterator(src)){
             // Create path in target, if not existing.
             const auto relativeSrc = fs::relative(p, src);
             const auto targetParentPath = dst / relativeSrc.parent_path();
             fs::create_directories(targetParentPath);
-
             // Copy to the targetParentPath which we just created.
             fs::copy(p, targetParentPath, fs::copy_options::overwrite_existing);
 
@@ -128,12 +139,12 @@ namespace MoonUtils {
             trashcan.push_back(dname);
         }
        for(auto& p: trashcan) rm(p);
+    #endif
     }
 
     void copy(std::string src, std::string dst){
-        if(!fs::exists(dst))
-            fs::create_directories(dst);
-        fs::copy(src, dst, fs::copy_options::overwrite_existing | fs::copy_options::recursive);
+        if(!fs::exists(dirname(dst))) mkdir(dirname(dst));
+        fs::copy(src, dst, fs::copy_options::update_existing | fs::copy_options::recursive);
     }
 
     void writeFile(std::string path, std::string content){
