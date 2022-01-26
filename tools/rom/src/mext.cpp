@@ -3,6 +3,12 @@
 #include "utils.h"
 #include "sm64.hpp"
 #include "json.hpp"
+#include "extractor/extractor.h"
+
+extern "C" {
+#include "extractor/n64/aiff_extract_codebook.h"
+#include "extractor/n64/adpcm/vadpcm.h"
+}
 
 using namespace std;
 namespace sm64 = MoonUtils;
@@ -23,10 +29,9 @@ Transformer transformers[] = {
         string aiff  = fullpath;
         string aifc  = sm64::join(dir, filename + ".aifc");
         string table = sm64::join(dir, filename + ".table");
-        string codebook = sm64::exec(sm64::format("%s/aiff_extract_codebook %s", sm64::cwd, aiff.c_str()));
+        string codebook = string(aiff_extract_codebook(CNV(aiff)));
         sm64::writeFile(table, codebook);
-
-        sm64::exec(sm64::format("%s/vadpcm_enc -c %s %s %s", sm64::cwd, table.c_str(), aiff.c_str(), aifc.c_str()));
+        vadpcm_enc(CNV(table), CNV(aiff), CNV(aifc));
     }}
 };
 
@@ -69,53 +74,48 @@ void write_manifest(string dir) {
     sm64::writeFile(sm64::join(dir, "properties.json"), addon.dump(4));
 }
 
-void build_addon(const char* rom, const char* dir){
+void build_addon( char* rom, char* soundbank, char* soundplayer, char* dir ){
     string rom_path(rom);
     string temp_dir(dir);
 
     sm64::rm(temp_dir);
 
     cout << "Extracting to " << temp_dir << endl;
-    string assets = sm64::exec(sm64::format("python3 %s/rom/tools/extract_assets.py %s %s", sm64::cwd, temp_dir.c_str(), rom_path.c_str()));
-    if( !nlohmann::json::accept(assets) ) return;
+    read_assets(rom, temp_dir);
 
-    nlohmann::json json = nlohmann::json::parse(assets);
+    vector<string> files;
+    sm64::dirscan(temp_dir, files);
 
-    if(json["status"]){
-        vector<string> files;
-        sm64::dirscan(temp_dir, files);
-
-        for(auto& file : files){
-            string ext = sm64::extname(file);
-            for(auto& transformer : transformers)
-                if(ext == transformer.name)
-                    transformer.callback(sm64::basename(file), file);
-        }
-
-        copy_defaults(temp_dir);
-        compile_sound(temp_dir);
-        copy_assets(temp_dir);
-        remove_unused(temp_dir);
-        write_manifest(temp_dir);
-        cout << "Done!" << endl;
+    for(auto& file : files){
+        string ext = sm64::extname(file);
+        for(auto& transformer : transformers)
+            if(ext == transformer.name)
+                transformer.callback(sm64::basename(file), file);
     }
+
+    copy_defaults(temp_dir);
+    compile_sound(string(soundplayer), string(soundbank), temp_dir);
+    copy_assets(temp_dir);
+    remove_unused(temp_dir);
+    write_manifest(temp_dir);
+    cout << "Done!" << endl;
 }
 
 int main(int argc, char *argv[]) {
-    sm64::bindCwd();
-    if(argc < 3){
-        cout << "Usage: " << argv[0] << " <rom> <output> [...defaults]" << endl;
+
+    if(argc < 5){
+        cout << "Usage: " << argv[0] << " <rom> <soundbanks> <sequences> <output> [...defaults]" << endl;
         return 1;
     }
 
-    for(int i = 3; i < argc; i++){
+    for(int i = 5; i < argc; i++){
         std::string path = argv[i];
         if(fs::exists(path)){
             defaults.push_back(path);
         }
     }
 
-    build_addon(argv[1], argv[2]);
+    build_addon(argv[1], argv[2], argv[3], argv[4]);
 
     return 0;
 }

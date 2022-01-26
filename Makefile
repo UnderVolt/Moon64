@@ -35,6 +35,7 @@ DISCORDRPC ?= 0
 # Various workarounds for weird toolchains
 NO_BZERO_BCOPY ?= 0
 NO_LDIV ?= 0
+NO_COPY ?= 0
 
 # BUILD_DIR is location where all build artifacts are placed
 BUILD_DIR_BASE := build
@@ -287,7 +288,6 @@ ifeq ($(TARGET_SWITCH),1)
   APP_VERSION := $(GIT_HASH)
   APP_ICON := $(CURDIR)/textures/logo/moon64-logo.jpg
   INCLUDE_CFLAGS += -I$(LIBNX)/include -I$(PORTLIBS)/include
-  OPT_FLAGS := -O2
   LIBDIRS	:= $(PORTLIBS) $(LIBNX)
   export LIBPATHS	:=	$(foreach dir,$(LIBDIRS),-L$(dir)/lib)
 endif
@@ -534,13 +534,15 @@ $(BUILD_DIR)/%.o: $(BUILD_DIR)/%.c
 	$(CC) -c $(CFLAGS) -o $@ $<
 
 $(ADDON_FLAG):
+ifneq ($(NO_COPY),1)
 	./tools/rom/mext $(MEXT_PARAMETERS)
 	$(shell touch $(ADDON_FLAG))
+endif
 
 $(EXE): $(ADDON_FLAG) $(O_FILES) $(BUILD_DIR)/$(RPC_LIBS)
 	$(LD) -L $(BUILD_DIR) -o $@ $(O_FILES) $(LDFLAGS)
 
-ifeq ($(TARGET_SWITCH), 1)
+ifeq ($(TARGET_SWITCH),1)
 
 # add `--icon=$(APP_ICON)` to this when we get a suitable icon
 %.nro: %.stripped %.nacp

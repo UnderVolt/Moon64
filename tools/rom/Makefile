@@ -1,11 +1,26 @@
-CXX ?= g++
+APP = mext
+BUILD_PATH = build
+CPPSRC = $(shell find src -name '*.cpp')
+CSRC   = $(shell find src -name '*.c')
+CPPOBJ := $(CPPSRC:%.cpp=%.o)
+COBJ := $(CSRC:%.c=%.o)
+OBJ := $(COBJ) $(CPPOBJ)
+BUILTOBJ := $(addprefix $(BUILD_PATH)/,$(OBJ))
+CINCLUDES = -I.
+CPPINCLUDES = -Iinclude -I. `pkg-config --cflags python3`
+LDLIBS ?= -lpython3.10
 
-DEFINES := -DCWD=\"$(shell pwd)\"
+$(APP): $(BUILTOBJ)
+	$(CXX) $(CPPFLAGS) -g -o $@ $(BUILTOBJ) $(LDLIBS)
 
-mext.o: src/json.hpp src/sm64.hpp src/mext.cpp
-	$(CXX) -std=c++17 -fexceptions -Iinclude/ -O3 -I. src/mext.cpp $(DEFINES) -o mext
+$(BUILD_PATH)/%.o: %.cpp
+	mkdir -p $(@D)
+	$(CXX) $(CXXFLAGS) -g $(CPPINCLUDES) -c $< -o $@
+
+$(BUILD_PATH)/%.o: %.c
+	mkdir -p $(@D)
+	$(CC) $(CFLAGS) -g $(CINCLUDES) -c $< -o $@
 
 clean:
-	rm -f mext
-
-.PHONY: clean
+	rm -rf $(BUILD_PATH)
+	rm -f $(APP)
